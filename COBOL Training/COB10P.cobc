@@ -139,4 +139,12 @@ P0300-PROCESS-INPUT.
                 IF IN-BONUS-AMT IS NOT NUMERIC
                     MOVE '04' TO '99'
                     PERFORM P0500-BAD-REC THRU P0599-EXIT.
-    
+                    IF IN-FED-EXEMPT-IND IS NOT VALID-FED-EXEMPT-IND
+                        MOVE '05' TO '99'
+                        PERFORM P0500-BAD-REC THRU P0599-EXIT.
+                        IF IN-ST-EXEMPT-IND IS NOT VALID-ST-EXEMPT-IND
+                            MOVE '06' TO '99'
+                            PERFORM P0500-BAD-REC THRU P0599-EXIT.
+    ELSE
+        PERFORM P0600-GOOD-REC THRU P0699-EXIT.
+    PERFORM
