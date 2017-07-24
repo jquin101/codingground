@@ -1,0 +1,430 @@
+ Identification Division.
+ Program-ID.  COB60P.
+ Author.  Justin Matlock.
+ Installation.  LearnQuest, USA.
+ Date-Written.  July, 2017.
+ Date-Compiled.
+
+ Environment Division.
+ Input-Output Section.
+ File-Control.
+ 
+    Select In-Bonus assign to Inbonus.
+    Select Out-Bonus assign to Outrept.
+    Select Statetax assign to Insttax.
+    
+ Data Division.
+ File Section.
+ 
+ FD  In-Bonus
+     Recording F
+     Label Records Standard
+     Record Contains 76 Characters
+     Block Contains 0 Records
+     Data Record Is In-Bonus-Record.
+     
+ 01  In-Bonus-Record.
+     05  in-state-code                      pic x(2).
+     05  in-last-name                       pic x(20).
+     05  in-mid-init                        pic x.
+     05  in-bonus-amt                       pic 9(9)  comp-3.
+     05  in-fed-tax-exempt-code             pic x.
+         88  valid-fed-exempt-code              value 'Y' 'N'.
+     05  in-st-tax-exempt-code              pic x.
+         88  valid-st-exempt-code               value 'Y' 'N'.
+     05  filler                             pic x(31).
+
+ FD  Out-Report
+     Recording F
+     Label Records Standard
+     Record Contains 133 Characters
+     Block Contains 0 Records
+     Data Record Is Out-Report-Record.
+     
+ 01  Out-Report-Record                      pic x(133).
+ 
+ FD  Statetax
+     Recording F
+     Label Records Standard
+     Record Contains 80 Records
+     Block Contains 0 Records
+     Data Record Is Insttax.
+     
+ 01  Insttax                                pic x(80).
+ 
+ Working-Storage Section.
+*ACCUMULATORS 
+ 01  Accumulators.
+     05  a-bonus-in                         pic s9(4)  comp value +0.
+     05  a-rec-out                          pic s9(4)  comp value +0.
+     05  a-line-ctr                         pic s9(4)  comp value +45.
+     05  a-lines-left-ctr                   pic s9(4)  comp value +0.
+     05  a-page-ctr                         pic s9(4)  value zero.
+    
+*INPUT FILE LAYOUT
+ 01  W-In-Bonus-Rec.
+     05  w-in-state                         pic x(2).
+     05  w-in-last-name                     pic x(20).
+     05  w-in-first-name                    pic x(15).
+     05  w-in-middle-init                   pic x.
+     05  w-in-gross-amt                     pic s9(7)v99  comp-3.
+     05  w-in-fed-exempt-ind                pic x.
+     05  w-in-st-exempt-ind                 pic x.
+     05  filler                             pic x(31).
+     
+*CONSTANTS
+ 01  Constants.    
+     05  c-fed-tax-rate                     pic sv9(2) value +.28.
+     05  c-exempt-msg                       pic x(21)  value 'Tax Exempt'.
+     05  c-state-hdr                        pic x(15)  value 'Total For State: '.
+     05  c-grand-hdr                        pic x(15)  value 'Total For All: '.
+
+*DATE-TIME 
+ 01  Y2K-Date-Time.
+     05  w-y2k-date.
+         10  w-cur-yyyy                     pic 9(4)   value zero.
+         10  w-cur-mm                       pic 9(2)   value zero.
+         10  w-cur-dd                       pic 9(2)   value zero.
+     05  w-y2k-time.
+         10  w-hours                        pic 99     value zero.
+         10  w-minutes                      pic 99     value zero.
+         10  w-seconds                      pic 9(4)   value zero.
+     
+ 01  LS-New-Date-Layout                     pic x(35)  value space.
+ 01  LS-New-Time-Layout                     pic x(14)  value space.
+ 
+*CONTROL FIELD
+ 01  S-State                                pic x(2).
+ 
+*PRINT LINES
+ 01  Blank-Line.
+     05  filler                             pic x(133).
+
+ 01  Print-Lines.
+     05  p-out-rec                          pic x(133).
+     
+     05  p-header-1.
+         10  p-hdr1-cc                      pic x      value '1'.
+         10  filler                         pic x(11)  value 'REPORT ID: '.
+         10  p-hdr1-report-id               pic x(8)   value space.
+         10  filler                         pic x(42)  value space.
+         10  filler                         pic x(23)  value 'ENCYCLOPEDIA FANTASTICA'.
+         10  filler                         pic x(40)  value space.
+         10  filler                         pic x(6)   value 'PAGE: '.
+         10  p-hdr1-page-num                pic z9.
+         
+     05  p-header-2.
+         10  p-hdr2-cc                      pic x      value ' '.
+         10  filler                         pic x(37)  value space.
+         10  filler                         pic x(21)  value 'MONTHLY BONUS REPORT'.
+         10  filler                         pic x(39)  value space.
+         10  p-hdr2-date                    pic x(35).
+         
+     05  p-header-3.
+         10  p-hdr3-cc                      pic x      value '-'.
+         10  filler                         pic x(33)  value 'NAME'.
+         10  filler                         pic x(13)  value 'STATE'.
+         10  filler                         pic x(12)  value 'GROSS'.
+         10  filler                         pic x(12)  value 'TAX'.
+         10  filler                         pic x(7)   value 'MESSAGE'.
+         10  filler                         pic x(18)  value space.
+         10  filler                         pic x(10)  value 'NET'.
+         10  filler                         pic x(13)  value space.
+         10  p-hdr3-time                    pic x(14).
+         
+     05  p-header-4.
+         10  p-hdr4-cc                      pic x      value '+'.
+         10  filler                         pic x(132) value all '_'.
+         
+     05  p-detail-1.
+         10  p-dtl1-cc                      pic x      value ' '.
+         10  p-dtl1-last-name               pic x(13)  value space.
+         10  filler                         pic x      value space.
+         10  p-dtl1-first-name              pic x(13).
+         10  filler                         pic x      value space.
+         10  p-dtl1-middle-init             pic x.
+         10  filler                         pic x(4)   value space.
+         10  p-dtl1-state                   pic x(2).
+         10  filler                         pic x(11)  value space.
+         10  p-dtl1-gross                   pic z,z99.99.
+         10  filler                         pic x(3)   value space.
+         10  p-dtl1-tax                     pic z,z99.99.
+         10  filler                         pic x(3).
+         10  p-dtl1-tax-exempt              pic x(18)  value space.
+         10  filler                         pic x(9)   value space.
+         10  p-dtl1-net                     pic z,z99.99.
+         10  filler                         pic x(23)  value space.
+ 
+*WORKING FIELDS
+ 01  Working-Fields.
+     05  w-fed-tax                          pic s9(9)v99 comp-3 value +0.
+     05  w-net-pay                          pic s9(9)v99 comp-3 value +0.
+     05  w-state-totals.
+         10  w-st-gross-pay                 pic s9(9)v99 comp-3 value +0.
+         10  w-st-fed-tax                   pic s9(9)v99 comp-3 value +0.
+         10  w-st-net-pay                   pic s9(9)v99 comp-3 value +0.
+     05  w-grand-totals.
+         10  w-gr-gross-pay                 pic s9(9)v99 comp-3 value +0.
+         10  w-gr-fed-tax                   pic s9(9)v99 comp-3 value +0.
+         10  w-gr-net-pay                   pic s9(9)v99 comp-3 value +0.
+     05  w-prev-state                       pic x(2)   value space.
+
+*TABLES
+ 01  St-Tax-Table                                      value zero.
+     05  Taxes occurs 44 times.
+         10  State-Code                     pic x(2).
+         10  State-Tax                      pic v9(6).
+         10  filler                         pic x(72).
+         
+ 01  Subscripts                             binary.
+     05  Table-Subs                         pic s9(2).
+     
+ 01  Table-Record.
+     05  State-Code-Rec                     pic x(2).
+     05  State-Tax-Rec                      pic v9(6).
+     05  State-TZ-Rec                       pic x(72).
+         
+*SWITCHES
+ 01  Switches.
+     05  bonus-eof-sw                       pic x      value 'N'.
+         88  bonus-eof                                 value 'Y'.
+         
+     05  table-eof-sw                       pic x      value 'N'.
+         88  table-eof                                 value 'Y'.
+
+*DYNAMIC CALLS
+ 01  Called-Programs.
+     05  w-date-time-pgm                    pic x(8)   value 'COB40X'.
+     
+ Procedure Division.
+*MAINLINE
+ P0100-Mainline.
+ 
+    perform P0200-Initialization thru P0299-Exit.
+    perform P0300-Process-Bonus thru P0399-Exit
+        until bonus-eof.
+    perform P0400-Finalization thru P0499-Exit.
+    
+    goback.
+    
+ P0199-Exit.
+    exit.
+    
+*INITIALIZE.
+ P0200-Initialization.
+ 
+    open input In-Bonus
+    open output Out-Report.
+        
+    call w-date-time-pgm using LS-New-Date-Layout, LS-New-Time-Layout.
+    
+    move 'COB60P' to p-hdr1-report-id.
+    move LS-New-Date-Layout to p-hdr2-date.
+    move LS-New-Time-Layout to p-hdr3-time.
+    
+    perform P0900-Read-Bonus thru P0999-Exit.
+    if bonus-eof
+        continue
+    else
+        move w-in-state to w-prev-state
+    end-if.
+    
+    perform P1000-Read-Table-Rec thru P1000-Exit
+        with test after
+        varying table-subs from 1 by 1
+        until table-eof or table-subs = 44
+            perform P1000-Read-Table-Rec thru P1000-Exit
+            if not table-eof
+                move state-code-rec to state-code(table-subs)
+                move state-tax-rec to state-tax(table-subs)
+                move state-tz-rec to time-zone(table-subs)
+                display 'Position' table-subs 'Contains State = ' state-code(table-subs) 'And Tax = ' state-tax(table-subs)
+            end-if.
+    
+ P0299-Exit.
+    exit.
+    
+ P0300-Process-Bonus.
+ 
+    if w-in-state = w-prev-state
+        continue
+    else
+        perform P0500-State-Break thru P0599-Exit.
+    end-if.
+    
+    if a-line-ctr > 45
+        move zero to a-line-ctr
+        perform P0600-Headers thru P0699-Exit.
+    end-if.
+    
+    move w-in-last-name to p-dtl1-last-name
+    move w-in-first-name to p-dtl1-first-name
+    move w-in-middle-init to p-dtl1-middle-init
+    move w-in-state to p-dtl1-state
+    move w-in-gross-amt to p-dtl1-gross.
+    
+    if w-in-gross-amt positive
+        if w-in-fed-exempt-ind = 'Y'
+            move zeros to w-fed-tax
+            move c-exempt-msg to p-dtl1-message
+        else
+            compute w-fed-tax rounded = w-in-gross-amt * c-fed-tax-percent
+            move spaces to p-dtl1-message
+        end-if.
+        
+        compute w-net-pay = w-in-gross-amt - w-fed-tax
+    else
+        move zeros to w-fed-tax, w-net-pay
+    end-if.
+    
+    move w-fed-tax to p-dtl1-fed-tax.
+    move w-net-pay to p-dtl1-net-pay.
+    
+    add w-in-gross-amt to w-st-gross-pay.
+    add w-fed-tax to w-st-fed-tax.
+    add w-net-pay to w-st-net-pay.
+    
+    move w-in-state to w-prev-state.
+    move p-detail-1 to p-out-rec.
+    
+    perform P0800-Write-Report thru P0899-Exit.
+    add +1 to a-rec-out.
+    
+    move spaces to p-detail-1.
+    
+    perform P0900-Read-Bonus thru P0999-Exit.
+    
+ P0399-Exit.
+    exit.
+    
+*FINALIZATION
+ P0400-Finalization.
+ 
+    if a-bonus-in > +0
+        perform P0500-State-Break thru P0599-Exit.
+        
+        move spaces to p-detail-1
+        
+        move '0' to p-dtl1-cc
+        move c-grand-hdr to p-dtl1-first-name
+        move ':' to p-dtl1-middle-init
+        move w-gr-gross-pay to p-dtl1-gross
+        move w-gr-fed-tax to p-dtl1-fed-tax
+        move w-gr-net-pay to p-dtl1-net-pay
+        
+        move p-detail-1 to p-out-rec
+        perform P0800-Write-Report thru P0899-Exit
+        
+        compute a-lines-left-ctr = (45 - a-line-ctr)
+        perform P0700-Print-Blanks thru P0799-Exit a-lines-left-ctr times
+        
+        move p-end-msg to p-out-rec
+        perform P0800-Write-Report thru P0899-Exit
+    end-if.
+    
+    close In-Bonus, Out-Report.
+    
+    display '*** COB60P TOTALS ***'.
+    display 'TOTAL RECORDS READ    : ' a-bonus-in.
+    display 'TOTAL RECORDS WRITTEN : ' a-rec-out.
+    
+    move +0 to return-code.
+    
+ P0499-Exit.
+    exit.
+    
+*STATE BREAK
+ P0500-State-Break.
+ 
+    move spaces to p-detail-1
+    move c-state-hdr to p-dtl1-first-name
+    move ':' to p-dtl1-middle-init
+    move w-prev-state to p-dtl1-state
+    move w-st-gross-pay to p-dtl1-gross
+    move w-st-fed-tax to p-dtl1-fed-tax
+    move w-st-net-pay to p-dtl1-net-pay
+    
+    move p-detail-1 to p-out-rec
+    perform P0800-Write-Report thru P0899-Exit.
+    
+    add w-st-gross-pay to w-gr-gross-pay
+    add w-st-fed-tax to w-gr-fed-tax
+    add w-st-net-pay to w-gr-net-pay.
+    
+    move zeros to w-st-gross-pay, w-st-fed-tax, w-st-net-pay.
+    
+    move w-in-state to w-prev-state.
+    move '-' to p-dtl1-cc.
+    add +2 to a-line-ctr.
+    
+ P0599-Exit.
+    exit.
+    
+*HEADERS
+ P0600-Headers.
+ 
+    add +1 to a-page-ctr.
+    move a-page-ctr to p-dtl1-page-no.
+    
+    move p-header-1 to p-out-rec.
+    perform P0800-Write-Report thru P0899-Exit.
+    
+    move p-header-2 to p-out-rec.
+    perform P0800-Write-Report thru P089-Exit.
+    
+    move p-header-3 to p-out-rec.
+    perform P0800-Write-Report thru P089-Exit.
+    
+    move p-header-4 to p-out-rec.
+    perform P0800-Write-Report thru P089-Exit.
+    
+    move p-detail-1 to p-out-rec.
+    perform P0800-Write-Report thru P089-Exit.
+    
+    move '0' to p-dtl1-cc.
+    move +7 to a-line-ctr.
+    
+ P0699-Exit.
+    exit.
+    
+*BLANK LINES FOR FINAL PAGE
+ P0700-Print-Blanks.
+    
+    move spaces to p-out-rec.
+    perform P0800-Write-Report thru P089-Exit.
+    
+ P0799-Exit.
+    exit.
+    
+*WRITE REPORT
+ P0800-Write-Report.
+ 
+    write out-report-record from p-out-rec.
+    add +1 to a-line-ctr.
+    
+ P0899-Exit.
+    exit.
+    
+*READ BONUS
+ P0900-Read-Bonus.
+ 
+    read In-Bonus into w-inbonus-rec
+        at end
+            move 'Y' to bonus-eof-sw
+        not at end
+            add +1 to a-bonus-in
+    end-read.
+    
+ P0999-Exit.
+    exit.
+
+*READ TABLE RECORD
+ P1000-Read-Table-Rec
+ 
+    read insttax into table-record
+        at end
+            set table-eof to true.
+    end-read.
+    
+ P1099-Exit.
+    exit.
