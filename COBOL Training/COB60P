@@ -41,16 +41,8 @@
            DATA RECORD IS IN-BONUS-RECORD.
 
        01  IN-BONUS-RECORD.
-           05  IN-STATE-CODE                PIC X(2).
-           05  IN-LAST-NAME                 PIC X(20).
-           05  IN-MID-INIT                  PIC X.
-           05  IN-BONUS-AMT                 PIC 9(9) COMP-3.
-           05  IN-FED-TAX-EXEMPT-CODE       PIC X.
-               88  VALID-FED-EXEMPT-CODE        VALUE 'Y' 'N'.
-           05  IN-ST-TAX-EXEMPT-CODE        PIC X.
-               88  VALID-ST-EXEMPT-CODE         VALUE 'Y' 'N'.
-           05  FILLER                       PIC X(31).
-
+           05  FILLER                PIC X(76).
+           
       ****************************************************************
       *    OUT-REPORT                                  OUTPUT        *
       ****************************************************************
@@ -73,9 +65,13 @@
            LABEL RECORDS STANDARD
            RECORD CONTAINS 80 CHARACTERS
            BLOCK CONTAINS 0 RECORDS
-           DATA RECORD IS INSTTAX.
+           DATA RECORD IS IN-ST-TAX.
 
-       01  IN-ST-TAX                         PIC X(80).
+       01  IN-ST-TAX.                         
+           05 ST-TAX-CODE                    PIC X(2).
+           05 FILLER                         PIC X.
+           05 ST-TAX                         PIC V9(6).
+           05 FILLER                         PIC X(31).
 
       *WORKING-STORAGE**********************************************
        WORKING-STORAGE SECTION.
@@ -86,9 +82,34 @@
        01  ACCUMULATORS.
            05  A-BONUS-IN                  PIC S9(04)  COMP VALUE +0.
            05  A-REC-OUT                   PIC S9(04)  COMP VALUE +0.
-           05  A-LINE-CTR                  PIC S9(04)  COMP VALUE +45.
-           05  A-LINES-LEFT-CTR            PIC S9(04)  COMP VALUE +0.
-           05  A-PAGE-CTR                  PIC S9(04)  VALUE ZERO.
+           05  A-LINE-CTR                  PIC S9(04)  COMP VALUE 50.
+           05  A-PAGE-CTR                  PIC S9(5)   COMP VALUE 0.
+       
+      *SWITCHES
+       01  SWITCHES.
+           05  BONUS-EOF-SW                PIC X VALUE 'N'.
+               88  BONUS-EOF                     VALUE 'Y'.
+           05  CONTROL-BREAK-SW            PIC X(2) VALUE SPACES.
+       
+      *STATE-TOTALS
+       01  STATE-TOTALS.
+           05  ST-GROSS-TOT                PIC S9(9)V99  COMP.
+           05  ST-FED-TAX-TOT              PIC S9(9)V99  COMP.
+           05  ST-ST-TAX-TOT               PIC S9(9)V99  COMP.
+           05  ST-NET-TOT                  PIC S9(9)V99  COMP.
+      
+      *GRAND-TOTALS
+       01  GRAND-TOTALS.
+           05  GR-GROSS-TOT                PIC S9(9)V99  COMP.
+           05  GR-FED-TAX-TOT              PIC S9(9)V99  COMP.
+           05  GR-ST-TAX-TOT               PIC S9(9)V99  COMP.
+           05  GR-NET-TOT                  PIC S9(9)V99  COMP.
+      
+      *TEMP-FIELDS
+       01  TEMP-FIELDS.
+           05  TEMP-FED                    PIC S9(9)V99  COMP VALUE 0.
+           05  TEMP-ST                     PIC S9(9)V99  COMP VALUE 0.
+           05  TEMP-NET                    PIC S9(9)V99  COMP VALUE 0.
 
       *INPUT FILE LAYOUT
        01  W-IN-BONUS-REC.
@@ -101,59 +122,32 @@
            05  W-IN-ST-EXEMPT-IND          PIC X.
            05  FILLER                      PIC X(31).
 
-      *CONSTANTS
-       01  CONSTANTS.
-           05  C-FED-TAX-RATE              PIC SV9(2) VALUE +.28.
-           05  C-ST-EXEMPT-MSG             PIC X(21) VALUE
-                                               'STATE TAX EXEMPT'.
-           05  C-FD-EXEMPT-MSG             PIC X(21) VALUE
-                                               'FED TAX EXEMPT'.
-           05  C-ST-FD-EXEMPT-MSG          PIC X(21) VALUE
-                                               'FED/STATE TAX EXEMPT'.
-           05  C-STATE-HDR                 PIC X(15) VALUE
-                                               'STATE TOTAL: '.
-           05  C-GRAND-HDR                 PIC X(15) VALUE
-                                               'GRAND TOTAL: '.
-      *DATE-TIME
-       01  W02-BONUS-REC.
-           05  W02-TAX                     PIC 9(6)  VALUE ZEROS.
-           05  W02-NET                     PIC 9(6)  VALUE ZEROS.
-
-       01  CURRENT-DATE-TIME.
-           05  DATES.
-               10  CD-YYYY                 PIC 9(4)  VALUE ZERO.
-               10  CD-MM                   PIC 9(2)  VALUE ZERO.
-               10  CD-DD                   PIC 9(2)  VALUE ZERO.
-           05  TIMING.
-               10  CD-HOURS                PIC 9(2)  VALUE ZERO.
-               10  CD-MINUTES              PIC 9(2)  VALUE ZERO.
-               10  CD-SECONDS              PIC 9(4)  VALUE ZERO.
+      *CALLED-PROGRAMS
+       01  W-DATE-TIME-PGM             PIC X(8)   VALUE 'COB40X'.
 
       *LINKAGE
        01  LS-NEW-DATE-LAYOUT              PIC X(35)  VALUE SPACE.
        01  LS-NEW-TIME-LAYOUT              PIC X(14)  VALUE SPACE.
 
-      *SAFE-STATE
-       01  S-STATE                         PIC X(2).
 
       *PRINT LINES
        01  BLANK-LINE.
            05  FILLER                      PIC X(133).
 
        01  PRINT-LINES.
-           05  P-OUT-REC                   PIC X(134).
+           05  P-OUT-REC                   PIC X(133).
 
            05  P-HEADER-1.
                10  P-HDR1-CC               PIC X(01) VALUE '1'.
                10  FILLER                  PIC X(11) VALUE
                                                'REPORT ID:'.
                10  P-HDR1-REPORT-ID        PIC X(08) VALUE SPACE.
-               10  FILLER                  PIC X(42) VALUE SPACE.
+               10  FILLER                  PIC X(43) VALUE SPACE.
                10  FILLER                  PIC X(23) VALUE
                                              'ENCYCLOPEDIA FANTASTICA'.
-               10  FILLER                  PIC X(40) VALUE SPACE.
+               10  FILLER                  PIC X(31) VALUE SPACE.
                10  FILLER                  PIC X(6)  VALUE 'PAGE: '.
-               10  P-HDR1-PAGE-NUM         PIC Z9.
+               10  P-HDR1-PAGE-NUM         PIC Z(9)9.
 
            05  P-HEADER-2.
                10  P-HDR2-CC               PIC X(01) VALUE ' '.
@@ -161,20 +155,24 @@
                10  FILLER                  PIC X(21) VALUE
                                                'MONTHLY BONUS REPORT'.
                10  FILLER                  PIC X(14) VALUE SPACE.
-               10  P-HDR2-DATE             PIC X(35).
+               10  P-HDR2-DATE             PIC X(35) VALUE 'DATE: '.
 
            05  P-HEADER-3.
-               10  P-HDR3-CC               PIC X(01) VALUE '-'.
-               10  FILLER                  PIC X(33) VALUE 'NAME'.
-               10  FILLER                  PIC X(23) VALUE 'STATE'.
-               10  FILLER                  PIC X(12) VALUE 'GROSS'.
-               10  FILLER                  PIC X(12) VALUE 'FED TAX'.
-               10  FILLER                  PIC X(14) VALUE 'STATE TAX'.
-               10  FILLER                  PIC X(12) VALUE 'NET'.
-               10  FILLER                  PIC X(10) VALUE 'MESSAGE'.
-               10  P-HDR3-TIME             PIC X(14).
+               10  P-HDR3-CC               PIC X(01) VALUE ' '.
+               10  FILLER                  PIC X(118) VALUE SPACE.
+               10  P-HDR3-TIME             PIC X(14) VALUE 'TIME:'.
 
            05  P-HEADER-4.
+               10  P-HDR3-CC               PIC X(01) VALUE '-'.
+               10  FILLER                  PIC X(39) VALUE 'NAME'.
+               10  FILLER                  PIC X(12) VALUE 'STATE'.
+               10  FILLER                  PIC X(15) VALUE 'GROSS'.
+               10  FILLER                  PIC X(14) VALUE 'FED TAX'.
+               10  FILLER                  PIC X(20) VALUE 'STATE TAX'.
+               10  FILLER                  PIC X(10) VALUE 'NET'.
+               10  FILLER                  PIC X(22) VALUE 'MESSAGE'.
+
+           05  P-HEADER-5.
                10  P-HDR4-CC               PIC X(01) VALUE '+'.
                10  FILLER                  PIC X(132) VALUE ALL '_'.
 
@@ -187,85 +185,58 @@
                10  P-DTL1-MIDDLE-INIT      PIC X.
                10  FILLER                  PIC X(03) VALUE SPACE.
                10  P-DTL1-STATE            PIC X(2).
-               10  FILLER                  PIC X(03) VALUE SPACE.
-               10  P-DTL1-GROSS            PIC ZZZ,ZZZ,ZZ9.99-.
-               10  FILLER                  PIC X(1)  VALUE SPACE.
-               10  P-DTL1-FED-TAX          PIC ZZZ,ZZZ,ZZ9.99-.
-               10  FILLER                  PIC X(01) VALUE SPACE.
-               10  P-DTL1-STATE-TAX        PIC ZZZ,ZZZ,ZZ9.99-.
-               10  FILLER                  PIC X(01) VALUE SPACE.
-               10  P-DTL1-NET-PAY          PIC ZZZ,ZZZ,ZZ9.99-.
-               10  FILLER                  PIC X(01) VALUE SPACE.
-               10  P-DTL1-MESSAGE          PIC X(21) VALUE SPACE.
-               10  FILLER                  PIC X(01) VALUE SPACE.
+               10  FILLER                  PIC X(05) VALUE SPACE.
+               10  P-DTL1-GROSS            PIC Z,ZZZ,ZZ9.99.
+               10  FILLER                  PIC X(4)  VALUE SPACE.
+               10  P-DTL1-FED-TAX          PIC Z,ZZZ,ZZ9.99.
+               10  FILLER                  PIC X(04) VALUE SPACE.
+               10  P-DTL1-STATE-TAX        PIC Z,ZZZ,ZZ9.99.
+               10  FILLER                  PIC X(04) VALUE SPACE.
+               10  P-DTL1-NET-PAY          PIC Z,ZZZ,ZZ9.99.
+               10  FILLER                  PIC X(02) VALUE SPACE.
+               10  P-DTL1-MESSAGE          PIC X(22) VALUE SPACE.
 
-           05  P-END-MSG.
-               10  P-END-CC                PIC X     VALUE '-'.
-               10  FILLER                  PIC X(61) VALUE SPACES.
-               10  FILLER                  PIC X(71) VALUE SPACES.
+           05  P-DETAIL-2.
+               10  P-DTL2-CC               PIC X(01) VALUE ' '.
+               10  FILLER                  PIC X(25) VALUE SPACE.
+               10  P-DTL2-ST-TOT           PIC X(16) VALUE
+                                              'TOTAL FOR STATE '.
+               10  P-DTL2-STATE            PIC X(2).
+               10  FILLER                  PIC X(5) VALUE SPACE.
+               10  P-DTL2-GROSS-TOT        PIC Z,ZZZ,ZZ9.99.
+               10  FILLER                  PIC X(4) VALUE SPACE.
+               10  P-DTL2-FED-TAX-TOT      PIC Z,ZZZ,ZZ9.99.
+               10  FILLER                  PIC X(4) VALUE SPACE.
+               10  P-DTL2-ST-TAX-TOT       PIC Z,ZZZ,ZZ9.99.
+               10  FILLER                  PIC X(4) VALUE SPACE.
+               10  P-DTL2-NET-TOT          PIC Z,ZZZ,ZZ9.99.
+               10  FILLER                  PIC X(23) VALUE SPACE.
+               
 
-      *WORKING-FIELDS
-       01  WORKING-FIELDS.
-           05  WF-FED-TAX                   PIC S9(9)V99 COMP-3
-                                                        VALUE +0.
-           05  WF-STATE-TAX                 PIC V9(6) VALUE ZEROS.
-
-           05  WF-NET-PAY                   PIC S9(9)V99 COMP-3
-                                                        VALUE +0.
-           05  WF-STATE-TOTALS.
-               10  WF-ST-GROSS-PAY          PIC S9(9)V99 COMP-3
-                                                        VALUE +0.
-               10  WF-ST-FED-TAX            PIC S9(9)V99 COMP-3
-                                                        VALUE +0.
-               10  WF-ST-NET-PAY            PIC S9(9)V99 COMP-3
-                                                        VALUE +0.
-           05  WF-GRAND-TOTALS.
-               10  WF-GR-GROSS-PAY          PIC S9(9)V99 COMP-3
-                                                        VALUE +0.
-               10  WF-GR-FED-TAX            PIC S9(9)V99 COMP-3
-                                                        VALUE +0.
-               10  WF-GR-NET-PAY            PIC S9(9)V99 COMP-3
-                                                        VALUE +0.
-           05  WF-PREV-STATE                PIC X(2)  VALUE SPACE.
-
-       01  STATE-TAX-AMT                    PIC S9(9)V99 COMP-3
-                                                        VALUE +0.
-
-      *SWITCHES
-       01  SWITCHES.
-           05  BONUS-EOF-SW                PIC X      VALUE 'N'.
-               88  BONUS-EOF                          VALUE 'Y'.
-
-           05  TABLE-EOF-SW                PIC X      VALUE 'N'.
-               88  TABLE-EOF                          VALUE 'Y'.
-
-           05  TABLE-FULL-SW               PIC X      VALUE 'N'.
-               88  TABLE-FULL                         VALUE 'Y'.
-
-           05  ST-TAX-FILE-SW              PIC X      VALUE 'N'.
-               88  ST-TAX-EOF                         VALUE 'Y'.
-
-           05  ST-CODE-SW                  PIC X      VALUE 'N'.
-               88  ST-CODE-FOUND                      VALUE 'Y'.
+           05  P-END.
+               10  FILLER                  PIC X(56) VALUE SPACE.    
+               10  FILLER                  PIC X(21) VALUE 
+                                              '*** END OF REPORT ***'.
+               10  FILLER                  PIC X(56) VALUE SPACES.
 
       *TABLES
        01  ST-TAX-TABLE.
            05  TAXES OCCURS 44 TIMES.
                10  STATE-CODE              PIC X(2).
                10  STATE-TAX               PIC V9(6).
-               10  TIME-ZONE               PIC X(72).
-
-       01  SUBSCRIPTS                      BINARY.
-           05  TABLE-SUBS                  PIC S9(2).
-
-       01  TABLE-RECORD.
-           05  STATE-CODE-REC              PIC X(2).
-           05  STATE-TAX-REC               PIC V9(6).
-           05  STATE-TZ-REC                PIC X(72).
-
-      *DYNAMIC CALLS
-       01  CALLED-PROGRAMS.
-           05  W-DATE-TIME-PGM             PIC X(8)   VALUE 'COB40X'.
+       
+       01  TAX-TABLE-SW                    PIC X VALUE 'N'.
+           88  TAX-TABLE-FULL                    VALUE 'Y'.
+           
+       01  TAX-TABLE-EOF-SW                PIC X VALUE 'N'.
+           88  TAX-TABLE-EOF                     VALUE 'Y'.
+      
+       01  TABLE-SUBS                  PIC S9(4) VALUE 1 COMP.
+       
+       01  STATE-CODE-SW                   PIC X VALUE 'N'.
+           88  STATE-CODE-FOUND                  VALUE 'Y'.
+           
+       01  STATE-SEARCH                    PIC X(2) VALUE SPACES.
 
       *PRODECURE DIVISION*********************************************
        PROCEDURE DIVISION.
@@ -280,8 +251,8 @@
 
            PERFORM P0400-FINALIZATION   THRU P0499-EXIT.
 
-      *    MOVE +0 TO RETURN-CODE
-      *    .
+           MOVE +0 TO RETURN-CODE.
+          
            GOBACK.
        P0199-EXIT.
            EXIT.
@@ -294,177 +265,92 @@
            OPEN INPUT  IN-BONUS.
            OPEN OUTPUT OUT-REPORT.
            OPEN INPUT  STATETAX.
-
+           
            MOVE LS-NEW-DATE-LAYOUT TO P-HDR2-DATE.
            MOVE LS-NEW-TIME-LAYOUT TO P-HDR3-TIME.
            MOVE 'COB60P' TO P-HDR1-REPORT-ID.
 
-           PERFORM P0700-READ-BONUS THRU P0799-EXIT.
-
-           PERFORM P1000-READ-TABLE-REC
+     *LOAD-ST-TAX-TABLE
+           PERFORM P1000-READ-ST-TAX
            MOVE 1 TO TABLE-SUBS
            PERFORM P1100-TABLE-LOAD
-               UNTIL TABLE-FULL OR ST-TAX-EOF
-           IF TABLE-FULL OR ST-TAX-EOF
-               NEXT SENTENCE
+               UNTIL TAX-TABLE-FULL OR TAX-TABLE-EOF
+           IF TAX-TABLE-FULL OR TAX-TABLE-EOF
+               DISPLAY 'TAX TABLE FULL'
                ELSE
                    DISPLAY '**** PROBLEM LOADING TABLE ****'
            END-IF.
 
-      ********************************************************
-      *    MOVE 'N' TO ST-CODE-SW
-      *    MOVE 1 TO TABLE-SUBS
-      *    PERFORM P1200-SEARCH-TABLE THRU P1299-EXIT
-      *        UNTIL ST-CODE-FOUND OR TABLE-SUBS > 44.
-      *
-      *    MOVE W-IN-STATE TO S-STATE.
-      *    MOVE A-PAGE-CTR TO P-HDR1-PAGE-NUM.
-      *
-      *    IF BONUS-EOF
-      *        DISPLAY 'RETURN CODE 88 - NO DATA TO PROCESS'
-      *    END-IF.
-      ***********************************************************
+           CLOSE STATETAX
+           
+           PERFORM P0700-READ-BONUS THRU P0799-EXIT.
        P0299-EXIT.
            EXIT.
 
       *PROCESS-BONUS.
        P0300-PROCESS-BONUS.
 
-           IF W-IN-STATE = WF-PREV-STATE
-               CONTINUE
-           ELSE
-               PERFORM P0800-STATE-BREAK THRU P0899-EXIT
-           END-IF.
-
            IF A-LINE-CTR > 45
-               MOVE ZERO TO A-LINE-CTR
+               MOVE 1 TO A-LINE-CTR
                PERFORM P0500-HEADERS THRU P0599-EXIT
            END-IF.
 
-           MOVE W-IN-LAST-NAME  TO P-DTL1-LAST-NAME
+           IF CONTROL-BREAK-SW = SPACES
+               MOVE W-IN-STATE  TO CONTROL-BREAK-SW
+               MOVE 0 TO ST-GROSS-TOT
+               MOVE 0 TO ST-FED-TAX-TOT
+               MOVE 0 TO ST-NET-TOT
+               MOVE 0 TO GR-GROSS-TOT
+               MOVE 0 TO GR-FED-TAX-TOT
+               MOVE 0 TO GR-NET-TOT
+           END-IF.
+           
+           IF CONTROL-BREAK-SW NOT = W-IN-STATE
+               PERFORM P0800-STATE-BREAK THRU PO899-EXIT
+           END-IF.
+           
+           COMPUTE ST-GROSS-TOT = ST-GROSS-TOT + W-IN-GROSS-AMT
+           
+           MOVE W-IN-LAST-NAME TO P-DTL1-LAST-NAME
            MOVE W-IN-FIRST-NAME  TO P-DTL1-FIRST-NAME
            MOVE W-IN-MIDDLE-INIT TO P-DTL1-MIDDLE-INIT
            MOVE W-IN-STATE       TO P-DTL1-STATE
            MOVE W-IN-GROSS-AMT   TO P-DTL1-GROSS
 
-      *TABLE SEARCH SEQUENCE
-           MOVE 'N' TO ST-CODE-SW
-           MOVE 1 TO TABLE-SUBS
-           PERFORM P1200-SEARCH-TABLE THRU P1299-EXIT
-               UNTIL ST-CODE-FOUND OR TABLE-SUBS > 44.
-
-      *FED EXEMPT MESSAGE SEQUENCE
-           IF W-IN-GROSS-AMT POSITIVE
-               IF W-IN-FED-EXEMPT-IND = 'Y'
-                   MOVE ZEROS TO WF-FED-TAX
-                   MOVE C-FD-EXEMPT-MSG TO P-DTL1-MESSAGE
-               ELSE
-                   COMPUTE WF-FED-TAX ROUNDED =
-                                 W-IN-GROSS-AMT * C-FED-TAX-RATE
-                   MOVE SPACES TO P-DTL1-MESSAGE
-               END-IF
-
-               COMPUTE WF-NET-PAY = W-IN-GROSS-AMT - WF-FED-TAX
-           ELSE
-               MOVE ZEROS TO WF-FED-TAX, WF-NET-PAY
-           END-IF.
-
-      *ST EXEMPT MESSAGE SEQUENCE*************************************
-           IF W-IN-GROSS-AMT POSITIVE
-               IF W-IN-ST-EXEMPT-IND = 'Y'
-                   IF P-DTL1-MESSAGE = SPACES
-                       MOVE C-ST-EXEMPT-MSG TO P-DTL1-MESSAGE
-                   ELSE
-                       MOVE C-ST-FD-EXEMPT-MSG TO P-DTL1-MESSAGE
-                   END-IF
-               ELSE
-                   IF W-IN-ST-EXEMPT-IND = 'N'
-                   COMPUTE STATE-TAX-AMT ROUNDED =
-                           W-IN-GROSS-AMT * WF-STATE-TAX
-                   MOVE WF-STATE-TAX TO
-               END-IF
-
-           ELSE
-               COMPUTE WF-NET-PAY = W-IN-GROSS-AMT - WF-FED-TAX -
-                       STATE-TAX-AMT
-           END-IF.
-
-      *FED/ST EXEMPT MESSAGE SEQUENCE
-      *    IF W-IN-GROSS-AMT POSITIVE
-      *        IF W-IN-FED-EXEMPT-IND = 'Y'
-      *            IF W-IN-ST-EXEMPT-IND = 'Y'
-      *                MOVE ZEROS TO WF-FED-TAX, WF-STATE-TAX
-      *                MOVE C-FED-ST-EXEMPT-MSG TO P-DTL1-MESSAGE
-      *            ELSE
-      *        ELSE
-      *            COMPUTE WF-FED-TAX ROUNDED =
-      *                          W-IN-GROSS-AMT * C-FED-TAX-RATE
-      *            COMPUTE WF-STATE-TAX ROUNDED =
-      *                          W-IN-GROSS-AMT * ST-TAX-RATE
-      *            MOVE SPACES TO P-DTL1-MESSAGE
-      *        END-IF
-      *
-      *        COMPUTE WF-NET-PAY = W-IN-GROSS-AMT - WF-FED-TAX -
-      *                             WF-STATE-TAX
-      *    ELSE
-      *        MOVE ZEROS TO WF-FED-TAX, WF-NET-PAY, WF-STATE-TAX
-      *    END-IF.
-      ************************************************************
-
-           MOVE WF-FED-TAX TO P-DTL1-FED-TAX.
-           MOVE WF-NET-PAY TO P-DTL1-NET-PAY.
-
-           ADD W-IN-GROSS-AMT TO WF-ST-GROSS-PAY.
-           ADD WF-FED-TAX TO WF-ST-FED-TAX.
-           ADD WF-NET-PAY TO WF-ST-NET-PAY.
-
-           MOVE W-IN-STATE TO WF-PREV-STATE.
-           MOVE P-DETAIL-1 TO P-OUT-REC.
-
+           PERFORM P0900-FED-ST-TAX THRU P0999-EXIT
+           
+           MOVE P-DETAIL-1 TO P-OUT-REC
+           
            PERFORM P0600-WRITE-REPORT THRU P0699-EXIT.
            ADD +1 TO A-REC-OUT
-
+           
            MOVE SPACES TO P-DETAIL-1.
-           PERFORM P0700-READ-BONUS   THRU P0799-EXIT.
-
+           
+           PERFORM P0700-READ-BONUS THRU P0799-EXIT.
+           
        P0399-EXIT.
            EXIT.
 
       *FINALIZATION.
        P0400-FINALIZATION.
 
-           IF A-BONUS-IN > +0
-               PERFORM P0800-STATE-BREAK THRU P0899-EXIT
+           PERFORM P0800-STATE-BREAK THRU P0899-EXIT
 
-               MOVE SPACES TO P-DETAIL-1
-
-               MOVE '0' TO P-DTL1-CC
-               MOVE C-GRAND-HDR TO P-DTL1-FIRST-NAME
-               MOVE ':' TO P-DTL1-MIDDLE-INIT
-               MOVE WF-GR-GROSS-PAY TO P-DTL1-GROSS
-               MOVE WF-GR-FED-TAX TO P-DTL1-FED-TAX
-               MOVE WF-GR-NET-PAY TO P-DTL1-NET-PAY
-
-               MOVE P-DETAIL-1 TO P-OUT-REC
-               PERFORM P0600-WRITE-REPORT THRU P0699-EXIT
-
-               COMPUTE A-LINES-LEFT-CTR = (45 - A-LINE-CTR)
-               PERFORM P0900-PRINT-BLANKS THRU P0999-EXIT
-                   A-LINES-LEFT-CTR TIMES
-
-               MOVE P-END-MSG TO P-OUT-REC
-               PERFORM P0600-WRITE-REPORT THRU P0699-EXIT
-           END-IF.
-
+           MOVE 'TOTAL' TO P-DTL2-ST-TOT
+           MOCE SPACES TO P-DTL2-STATE
+           MOVE GR-GROSS-TOT TO P-DTL2-GROSS-TOT
+           MOVE GR-FED-TAX-TOT TO P-DTL2-FED-TAX-TOT
+           MOVE GR-ST-TAX-TOT TO P-DTL2-ST-TAX-TOT
+           MOVE GR-NET-TOT TO P-DTL2-NET-TOT
+           MOVE P-DETAIL-2 TO P-OUT-REC
+           PERFORM P0600-WRITE-REPORT THRU P0699-EXIT.
+           
            CLOSE IN-BONUS.
            CLOSE OUT-REPORT.
-           CLOSE STATETAX.
 
            DISPLAY '*** COB60P TOTALS ***'.
            DISPLAY 'TOTAL RECORDS READ    : ' A-BONUS-IN.
            DISPLAY 'TOTAL RECORDS WRITTEN : ' A-REC-OUT.
-
-           MOVE +0 TO RETURN-CODE.
 
        P0499-EXIT.
            EXIT.
@@ -487,12 +373,12 @@
            MOVE P-HEADER-4     TO P-OUT-REC.
            PERFORM P0600-WRITE-REPORT THRU P0699-EXIT.
 
-           MOVE P-DETAIL-1     TO P-OUT-REC.
+           MOVE P-HEADER-5     TO P-OUT-REC.
            PERFORM P0600-WRITE-REPORT THRU P0699-EXIT.
 
            MOVE '0'            TO P-DTL1-CC.
 
-           MOVE +7             TO A-LINE-CTR.
+           MOVE 1            TO A-LINE-CTR.
 
        P0599-EXIT.
            EXIT.
@@ -522,44 +408,75 @@
       *STATE-BREAK
        P0800-STATE-BREAK.
 
-           MOVE SPACES TO P-DETAIL-1
-           MOVE C-STATE-HDR TO P-DTL1-FIRST-NAME
-           MOVE ':' TO P-DTL1-MIDDLE-INIT
-           MOVE WF-PREV-STATE TO P-DTL1-STATE
-           MOVE WF-ST-GROSS-PAY TO P-DTL1-GROSS
-           MOVE WF-ST-FED-TAX TO P-DTL1-FED-TAX
-           MOVE WF-ST-NET-PAY TO P-DTL1-NET-PAY
-
-           MOVE P-DETAIL-1 TO P-OUT-REC
+           COMPUTE GR-GROSS-TOT = GR-GROSS-TOT + ST-GROSS-TOT
+           COMPUTE GR-FED-TAX-TOT = GR-FED-TAX-TOT + ST-FED-TAX-TOT
+           COMPUTE GR-ST-TAX-TOT = GR-ST-TAX-TOT + ST-ST-TAX-TOT
+           COMPUTE GR-NET-TOT = GR-NET-TOT + ST-NET-TOT
+           
+           MOVE CONTROL-BREAK-SW TO P-DTL2-STATE
+           MOVE ST-GROSS-TOT TO P-DTL2-GROSS-TOT
+           MOVE ST-FED-TAX-TOT TO P-DTL2-FED-TAX-TOT
+           MOVE ST-ST-TAX-TOT TO P-DTL2-ST-TAX-TOT
+           MOVE ST-NET-TOT TO P-DTL2-NET-TOT
+           
+           MOVE P-DETAIL-2 TO P-OUT-REC
+           
            PERFORM P0600-WRITE-REPORT THRU P0699-EXIT.
 
-           ADD WF-ST-GROSS-PAY TO WF-GR-GROSS-PAY
-           ADD WF-ST-FED-TAX TO WF-GR-FED-TAX
-           ADD WF-ST-NET-PAY TO WF-GR-NET-PAY.
-
-           MOVE ZEROS TO WF-ST-GROSS-PAY, WF-ST-FED-TAX, WF-ST-NET-PAY.
-
-           MOVE W-IN-STATE TO WF-PREV-STATE.
+           MOVE W-IN-STATE TO CONTROL-BREAK-SW
+           MOVE 0 TO ST-GROSS-TOT
+           MOVE 0 TO ST-FED-TAX-TOT
+           MOVE 0 TO ST-ST-TAX-TOT
+           MOVE 0 TO ST-NET-TOT
            MOVE '-' TO P-DTL1-CC.
-           ADD +2 TO A-LINE-CTR.
 
        P0899-EXIT.
            EXIT.
 
-      *BLANK LINES FOR FINAL PAGE
-       P0900-PRINT-BLANKS.
+      *FED-ST-TAX
+       P0900-FED-ST-TAX.
+       
+           MOVE SPACES TO P-DTL1-MESSAGE
+           
+           IF W-IN-FED-EXEMPT-IND = 'Y'
+               MOVE 0 TO TEMP-FED
+               MOVE 'FED TAX EXEMPT' TO P-DTL1-MESSAGE
+           ELSE
+               COMPUTE TEMP-FED = W-IN-GROSS-AMT * 0.28
+           END-IF
+           
+           IF W-IN-ST-EXEMPT-IND = 'Y'
+               MOVE 0 TO TEMP-ST
+               IF P-DTL1-MESSAGE = SPACES
+                   MOVE 'STATE TAX EXEMPT' TO P-DTL1-MESSAGE
+               ELSE
+                   MOVE 'FED/STATE TAX EXEMPT' TO P-DTL1-MESSAGE
+           ELSE
+               MOVE 1 TO TABLE-SUBS
+               MOVE W-IN-STATE TO STATE-SEARCH
+               MOVE 'N' TO STATE-CODE-SW
+               PERFORM P1200-TABLE-SEARCH THRU P1299-EXIT
+                   UNTIL STATE-CODE-FOUND OR 50 < TABLE-SUBS
+               COMPUTE TEMP-ST ROUNDED = W-IN-GROSS-AMT * TAX(TABLE-SUBS)
+            END-IF
 
-           MOVE SPACES TO P-OUT-REC.
-           PERFORM P0600-WRITE-REPORT THRU P0699-EXIT.
-
-       P0999-EXIT.
-           EXIT.
+           COMPUTE TEMP-NET = W-IN-GROSS-AMT - TEMP-FED
+           COMPUTE TEMP-NET = TEMP-NET - TEMP-ST
+           
+           COMPUTE ST-FED-TAX-TOT =ST-FED-TAX-TOT + TEMP-FED
+           COMPUTE ST-ST-TAX-TOT = ST-ST-TAX-TOT + TEMP-ST
+           COMPUTE ST-NET-TOT = ST-NET-TOT + TEMP-NET
+           
+           MOVE TEMP-FED TO P-DTL1-FED-TAX
+           MOVE TEMP-ST TO P-DTL1-ST-TAX
+           MOVE TEMP-NET TO P-DTL1-NET.
 
       *READ TABLE RECORD
        P1000-READ-TABLE-REC.
 
            READ STATETAX INTO TABLE-RECORD
                AT END
+                   DISPLAY 'END OF FILE'
                    SET TABLE-EOF TO TRUE
            END-READ.
 
@@ -569,12 +486,14 @@
       *LOAD STATE TAX TABLE
        P1100-TABLE-LOAD.
 
-           MOVE TABLE-RECORD TO TAXES(TABLE-SUBS)
+           MOVE ST-STATE-CODE TO STATE(TABLE-SUBS)
+           MOVE ST-TAX TO TAX(TABLE-SUBS)
            DISPLAY 'POSITION ' TABLE-SUBS
                    ' CONTAINS STATE= ' STATE-CODE(TABLE-SUBS)
                    ' AND TAX= ' STATE-TAX(TABLE-SUBS)
-           ADD 1 TO TABLE-SUBS
-           IF TABLE-SUBS > 44
+           COMPUTE TABLE-SUBS = TABLE-SUBS + 1
+          
+           IF TABLE-SUBS > 50
                SET TABLE-FULL TO TRUE
            END-IF
            PERFORM P1000-READ-TABLE-REC THRU P1099-EXIT.
@@ -585,21 +504,12 @@
       *SEARCH STATE TAX TABLE
        P1200-SEARCH-TABLE.
 
-           IF W-IN-STATE = STATE-CODE(TABLE-SUBS)
-               SET ST-CODE-FOUND TO TRUE
-               MOVE STATE-TAX(TABLE-SUBS) TO WF-STATE-TAX
-               COMPUTE STATE-TAX-AMT = W-IN-GROSS-AMT *
-                                     WF-STATE-TAX
-               DISPLAY STATE-TAX-AMT
-               MOVE STATE-TAX-AMT TO P-DTL1-STATE-TAX
-               DISPLAY 'POSITION ' TABLE-SUBS
-                       ' CONTAINS STATE= ' STATE-CODE(TABLE-SUBS)
-                       ' AND TAX= ' STATE-TAX(TABLE-SUBS)
+           IF STATE-SEARCH = STATE(TABLE-SUBS)
+               MOVE 'Y' TO STATE-CODE-SW
            ELSE
-               MOVE ZEROS TO STATE-TAX-AMT
-               ADD 1 TO TABLE-SUBS
+               COMPUTE TABLE-SUBS = TABLE-SUBS + 1
            END-IF.
-
+           
        P1299-EXIT.
            EXIT.
 
